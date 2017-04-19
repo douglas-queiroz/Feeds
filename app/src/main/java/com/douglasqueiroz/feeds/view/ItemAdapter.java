@@ -42,9 +42,17 @@ public class ItemAdapter extends ArrayAdapter<Item> {
         TextView txData = (TextView) view.findViewById(R.id.tx_date);
 
         Item item = getItem(position);
-        txTitle.setText(item.getTitle());
-        txData.setText(DATE_FORMAT.format(item.getDate()));
-        ivPhoto.setImageURI(item.getUrlImage());
+        if (item.getTitle() != null) {
+            txTitle.setText(item.getTitle());
+        }
+
+        if (item.getDate() != null) {
+            txData.setText(DATE_FORMAT.format(item.getDate()));
+        }
+
+        if (item.getUrlImage() != null) {
+            ivPhoto.setImageURI(item.getUrlImage());
+        }
 
         return view;
     }

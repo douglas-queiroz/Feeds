@@ -3,10 +3,9 @@ package com.douglasqueiroz.feeds.view;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
+import android.support.design.widget.NavigationView;
 import android.support.design.widget.Snackbar;
 import android.support.v4.app.Fragment;
-import android.view.View;
-import android.support.design.widget.NavigationView;
 import android.support.v4.view.GravityCompat;
 import android.support.v4.widget.DrawerLayout;
 import android.support.v7.app.ActionBarDrawerToggle;
@@ -14,6 +13,7 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.view.Menu;
 import android.view.MenuItem;
+import android.view.View;
 
 import com.douglasqueiroz.feeds.R;
 import com.douglasqueiroz.feeds.model.Feed;
@@ -35,27 +35,23 @@ public class MainActivity extends AppCompatActivity
 
     private static final Class<? extends Fragment> FEED_FRAGMENT = FeedFragment.class;
 
-    Feed selectedFeed;
-
-    List<Feed> feedList;
-
-    NewFeedDialog newFeedDialog = new NewFeedDialog();
-
-    FeedFragment feedFragment = new FeedFragment();
-
-    Realm realm;
+    final NewFeedDialog newFeedDialog = new NewFeedDialog();
+    final FeedFragment feedFragment = new FeedFragment();
+    final FeedRequester feedRequester = new FeedRequester();
+    final List<Feed> feedList = new ArrayList<>();
 
     @BindView(R.id.toolbar)
     Toolbar toolbar;
-
     @BindView(R.id.drawer_layout)
     DrawerLayout drawer;
-
     @BindView(R.id.fab)
     FloatingActionButton fab;
-
     @BindView(R.id.nav_view)
     NavigationView navigationView;
+
+    Feed selectedFeed;
+    Menu menu;
+    Realm realm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -77,12 +73,13 @@ public class MainActivity extends AppCompatActivity
 
         navigationView.setNavigationItemSelectedListener(this);
 
+        menu = navigationView.getMenu();
+
         Realm.init(this);
 
         realm = Realm.getDefaultInstance();
 
         loadFeeds();
-
 
         getSupportFragmentManager()
                 .beginTransaction()
@@ -92,49 +89,50 @@ public class MainActivity extends AppCompatActivity
 
     @OnClick(R.id.fab)
     public void onClickFab(View view) {
+
         newFeedDialog.setListner(new NewFeedDialog.NewFeedDialogListner() {
+
             @Override
             public void onClickSave(String url) {
+
                 newFeedDialog.dismiss();
+
                 addFeed(url);
+
             }
 
             @Override
             public void onClickCancel() {
+
                 newFeedDialog.dismiss();
+
             }
         });
+
         newFeedDialog.show(getFragmentManager(), NewFeedDialog.TAG);
     }
 
     private void addFeed(String url) {
         final MainActivity me = this;
 
-        new FeedRequester().getFeed(url, new RequesterListener<Feed>() {
+        loadFeed(url, new SuccessRequesterListener() {
+
             @Override
             public void onSuccess(Feed feed) {
                 me.feedFragment.setFeed(feed);
 
                 realm.beginTransaction();
+
                 realm.copyToRealm(feed);
+
                 realm.commitTransaction();
 
-                loadFeeds();
-            }
+                addItemToMenu(feed.getTitle());
 
-            @Override
-            public void onError(Exception e) {
-                String msg;
-                if (e instanceof IllegalArgumentException) {
-                    msg = getResources().getString(R.string.invalid_url);
-                } else {
-                    msg = getResources().getString(R.string.default_msg_error);
-                }
+                feedList.add(feed);
 
-                Snackbar snackbar = Snackbar
-                        .make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG);
+                me.feedFragment.setFeed(feed);
 
-                snackbar.show();
             }
         });
     }
@@ -156,49 +154,54 @@ public class MainActivity extends AppCompatActivity
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
+
         getMenuInflater().inflate(R.menu.menu, menu);
 
         return true;
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        int id = item.getItemId();
-
-        return id == R.id.action_settings || super.onOptionsItemSelected(item);
-
-    }
-
     @SuppressWarnings("StatementWithEmptyBody")
     @Override
     public boolean onNavigationItemSelected(@NonNull MenuItem item) {
+
         String title = item.getTitle().toString();
 
         for (Feed feed : feedList) {
+
             if (title.equals(feed.getTitle())) {
+
                 setSelectedFeed(feed);
+
                 break;
             }
+
         }
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+
         drawer.closeDrawer(GravityCompat.START);
+
         return true;
     }
 
     private void loadFeeds() {
+
         RealmQuery<Feed> query = realm.where(Feed.class);
+
         RealmResults<Feed> result = query.findAll();
 
-        Menu menu = navigationView.getMenu();
-
-        feedList = new ArrayList<>();
         for (int i = 0; i < result.size(); i++) {
+
             Feed feed = result.get(i);
+
             if (i == 0 && selectedFeed == null) {
+
                 setSelectedFeed(feed);
+
             }
-            menu.add(Menu.NONE, Menu.NONE, Menu.NONE, feed.getTitle());
+
+            addItemToMenu(feed.getTitle());
+
             feedList.add(feed);
         }
     }
@@ -206,17 +209,61 @@ public class MainActivity extends AppCompatActivity
     private void setSelectedFeed(Feed feed) {
         this.selectedFeed = feed;
 
-        new FeedRequester().getFeed(feed.getLink(), new RequesterListener<Feed>() {
+        loadFeed(feed.getLink(), new SuccessRequesterListener() {
+
             @Override
             public void onSuccess(Feed feed) {
+
                 feedFragment.setFeed(feed);
+
+            }
+
+        });
+    }
+
+    private void addItemToMenu(String item) {
+
+        menu.add(Menu.NONE, Menu.NONE, Menu.NONE, item);
+
+    }
+
+    private void loadFeed(String url, final SuccessRequesterListener listener) {
+
+        feedRequester.getFeed(url, new RequesterListener<Feed>() {
+
+            @Override
+            public void onSuccess(Feed feed) {
+
+                listener.onSuccess(feed);
+
             }
 
             @Override
             public void onError(Exception e) {
 
+                String msg;
+
+                if (e instanceof IllegalArgumentException) {
+
+                    msg = getResources().getString(R.string.invalid_url);
+
+                } else {
+
+                    msg = getResources().getString(R.string.default_msg_error);
+
+                }
+
+                Snackbar snackbar = Snackbar
+                        .make(findViewById(android.R.id.content), msg, Snackbar.LENGTH_LONG);
+
+                snackbar.show();
             }
         });
+    }
+
+    private interface SuccessRequesterListener {
+
+        void onSuccess(Feed feed);
 
     }
 }

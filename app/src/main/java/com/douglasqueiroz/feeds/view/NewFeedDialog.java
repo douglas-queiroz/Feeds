@@ -23,56 +23,73 @@ public class NewFeedDialog extends DialogFragment {
 
     public static final String TAG = NewFeedDialog.class.getSimpleName();
 
-    private NewFeedDialogListner listner;
-
     @BindView(R.id.edt_link)
     EditText edtLink;
-
     @BindView(R.id.btn_cancel)
     Button btnCancel;
-
     @BindView(R.id.btn_save)
     Button btnSavel;
 
+    private NewFeedDialogListner listner;
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
+
         super.onCreate(savedInstanceState);
+
     }
 
     @Override
     public void onViewCreated(View view, Bundle savedInstanceState) {
+
         super.onViewCreated(view, savedInstanceState);
+
         ButterKnife.bind(this, view);
+
     }
 
     public void setListner(NewFeedDialogListner listner) {
+
         this.listner = listner;
+
     }
 
     @Nullable
     @Override
     public View onCreateView(LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
+
         return inflater.inflate(R.layout.dialog_new_feed, container, false);
+
     }
 
     @OnClick(R.id.btn_save)
     public void onBtnSaveClicked() {
+
         if (listner != null) {
+
             String url = edtLink.getText().toString().trim();
+
             listner.onClickSave(url);
+
         }
     }
 
     @OnClick(R.id.btn_cancel)
     public void onBtnCancelClicked() {
+
         if (listner != null) {
+
             listner.onClickCancel();
+
         }
     }
 
 
     public interface NewFeedDialogListner {
+
         void onClickSave(String url);
+
         void onClickCancel();
+
     }
 }
